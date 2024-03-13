@@ -1,19 +1,32 @@
 import { transformAsync } from "@babel/core";
-import plugin from "../src";
+import plugin, { PluginOptions } from "../src";
 import { test, expect, describe } from "vitest";
 
-describe("Transform", () => {
-  async function transform(code: string): Promise<string> {
+function initTransform(opt: PluginOptions) {
+  return async function transform(code: string): Promise<string> {
     const result = await transformAsync(code, {
-      plugins: [[plugin]],
+      plugins: [[plugin, opt]],
     });
     return result!.code!;
-  }
+  };
+}
+
+describe("transform single name", () => {
+  const transform = initTransform({
+    replace: {
+      name1: { name: "name2" },
+    },
+  });
   [
     {
-      name: "init",
-      from: "test",
-      to: "test",
+      name: "replace name",
+      from: "<div name1 />",
+      to: "<div name2 />",
+    },
+    {
+      name: "replace name with duplicate",
+      from: "<div name1 name2 />",
+      to: "<div name2 />",
     },
   ].forEach(({ name, from, to }) => {
     test(name, async () => {
