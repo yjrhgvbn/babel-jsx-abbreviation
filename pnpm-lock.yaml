@@ -8,7 +8,13 @@ importers:
 
   .:
     dependencies:
+      '@babel/generator':
+        specifier: ^7.23.6
+        version: 7.23.6
       '@babel/helper-plugin-utils':
+        specifier: ^7.24.0
+        version: 7.24.0
+      '@babel/parser':
         specifier: ^7.24.0
         version: 7.24.0
       '@babel/plugin-syntax-jsx':
@@ -20,6 +26,9 @@ importers:
       '@babel/types':
         specifier: ^7.24.0
         version: 7.24.0
+      '@types/babel__generator':
+        specifier: ^7.6.8
+        version: 7.6.8
     devDependencies:
       '@babel/core':
         specifier: ^7.24.0
@@ -1826,7 +1835,6 @@ snapshots:
   /@types/babel__generator@7.6.8:
     dependencies:
       '@babel/types': 7.24.0
-    dev: true
 
   /@types/babel__helper-plugin-utils@7.10.3:
     dependencies:

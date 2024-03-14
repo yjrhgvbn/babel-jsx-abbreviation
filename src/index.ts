@@ -1,8 +1,11 @@
 import * as t from "@babel/types";
 import { type NodePath, type Visitor } from "@babel/traverse";
+import { parse } from "@babel/parser";
+import generate from "@babel/generator";
 // @ts-expect-error
 import syntaxJsx from "@babel/plugin-syntax-jsx";
 import { declare } from "@babel/helper-plugin-utils";
+import { getJsxAstValueByString } from "./utils";
 
 interface ReplaceTransform {
   parse?: (name: string, value: string) => { name: string; value: string };
@@ -84,14 +87,41 @@ function handleJSXAttribute(attributes: NodePath<t.JSXAttribute | t.JSXSpreadAtt
           const transforms = getReplaceTransforms(replace, key);
           for (const transform of transforms) {
             const toReplaceName = transform.name;
-            if (!toReplaceName) break;
-            /* remove the attribute if the new name already exists */
-            if (checkIdentifierExist(attributes, toReplaceName)) {
-              attr.remove();
-              break;
+            if (toReplaceName) {
+              /* remove the attribute if the new name already exists */
+              if (checkIdentifierExist(attributes, toReplaceName)) {
+                attr.remove();
+                break;
+              }
+              if (transform.name) {
+                name.replaceWith(t.jsxIdentifier(transform.name));
+              }
             }
-            if (transform.name) {
-              name.replaceWith(t.jsxIdentifier(transform.name));
+
+            const toReplaceValue = transform.value;
+            const nodePathValue = attr.get("value");
+            const nodeValue = nodePathValue.node;
+            if (toReplaceValue) {
+              if (typeof toReplaceValue === "string") {
+                if (t.isJSXExpressionContainer(nodeValue)) {
+                  nodeValue.expression = t.stringLiteral(toReplaceValue);
+                } else if (t.isStringLiteral(nodeValue)) {
+                  nodeValue.value = toReplaceValue;
+                } else {
+                  nodePathValue.replaceWith(t.stringLiteral(toReplaceValue));
+                }
+              } else if (typeof toReplaceValue === "function") {
+                if (t.isJSXExpressionContainer(nodeValue)) {
+                  const expressionValue = generate(nodeValue.expression).code;
+                  nodePathValue.replaceWith(getJsxAstValueByString(toReplaceValue(expressionValue)) as any);
+                } else if (t.isStringLiteral(nodeValue)) {
+                  const generateValue = generate(nodeValue).code;
+                  nodePathValue.replaceWith(getJsxAstValueByString(toReplaceValue(generateValue)) as any);
+                } else {
+                  nodePathValue.replaceWith(getJsxAstValueByString(toReplaceValue("")) as any);
+                  // attr.get("value").replaceWith(t.stringLiteral(toReplaceValue(nodeValue.value)));
+                }
+              }
             }
           }
         }
