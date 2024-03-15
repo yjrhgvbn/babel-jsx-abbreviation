@@ -1,6 +1,5 @@
 import * as t from "@babel/types";
-import { type NodePath, type Visitor } from "@babel/traverse";
-import { parse } from "@babel/parser";
+import { type NodePath } from "@babel/traverse";
 import generate from "@babel/generator";
 // @ts-expect-error
 import syntaxJsx from "@babel/plugin-syntax-jsx";
@@ -29,28 +28,7 @@ export default declare<PluginOptions>((api, opt = {}) => {
       JSXOpeningElement(path) {
         const attributes = path.get("attributes");
         handleJSXAttribute(attributes, opt);
-
-        attributes.forEach((attr) => {
-          // TODO
-          if (attr.isJSXSpreadAttribute()) {
-            return;
-          }
-          if (attr.isJSXAttribute()) {
-            // const name = attr.get("name");
-            // if (name.isJSXIdentifier({ name: "test" })) {
-            //   name.replaceWith(t.jsxIdentifier("test123"));
-            //   // const value = attr.get("value");
-            //   // if (value.isStringLiteral()) {
-            //   //   value.replaceWith(t.stringLiteral("test12"));
-            //   // }
-            // }
-          }
-        });
       },
-      // Program: {
-      //   enter(path, state) { },
-      //   exit(path) { },
-      // },
     },
   };
 });
@@ -73,7 +51,6 @@ function getReplaceTransforms(replace: Replace, name: string) {
 
 function handleJSXAttribute(attributes: NodePath<t.JSXAttribute | t.JSXSpreadAttribute>[], opt: PluginOptions) {
   attributes.forEach((attr) => {
-    // TODO
     if (attr.isJSXSpreadAttribute()) {
       return;
     }
@@ -119,7 +96,6 @@ function handleJSXAttribute(attributes: NodePath<t.JSXAttribute | t.JSXSpreadAtt
                   nodePathValue.replaceWith(getJsxAstValueByString(toReplaceValue(generateValue)) as any);
                 } else {
                   nodePathValue.replaceWith(getJsxAstValueByString(toReplaceValue("")) as any);
-                  // attr.get("value").replaceWith(t.stringLiteral(toReplaceValue(nodeValue.value)));
                 }
               }
             }

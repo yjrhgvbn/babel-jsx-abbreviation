@@ -101,3 +101,37 @@ describe("transform single value fn", () => {
     });
   });
 });
+
+describe("transform single name and value", () => {
+  const transform = initTransform({
+    replace: {
+      c: {
+        name: "className",
+        value: (v) => {
+          return `{clsx(${v})}`;
+        },
+      },
+    },
+  });
+  [
+    {
+      name: "replace name and value",
+      from: "<div c />",
+      to: `<div className={clsx()} />`,
+    },
+    {
+      name: "replace name and value with value",
+      from: `<div c="hello" />`,
+      to: `<div className={clsx("hello")} />`,
+    },
+    {
+      name: "replace name and value with array value",
+      from: `<div c={["hello", "world"]} />`,
+      to: `<div className={clsx(["hello", "world"])} />`,
+    },
+  ].forEach(({ name, from, to }) => {
+    test(name, async () => {
+      expect(await transform(from)).toMatch(to);
+    });
+  });
+});
