@@ -4,7 +4,7 @@ A babel plugin help you to easy witrte props in react component.
 
 ## setting
 
-```json
+```js
 replace: {
   c: {
     name: "className",
@@ -26,3 +26,8 @@ replace: {
 ```jsx
 <div className={clsx(["mt2", "mb-1"])} />
 ```
+
+## TODO
+
+- [ ] support multiple replace
+- [ ] support auto import
