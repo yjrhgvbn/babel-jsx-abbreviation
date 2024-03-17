@@ -40,17 +40,46 @@ describe("transform single name", () => {
   });
 });
 
+describe("transform single name fn", () => {
+  const transform = initTransform({
+    replace: {
+      name1: { name: (val) => val.toUpperCase() },
+    },
+  });
+  [
+    {
+      name: "replace name",
+      from: "<div name1 />",
+      to: "<div NAME1 />",
+    },
+    {
+      name: "replace name with duplicate",
+      from: `<div name1 NAME1="hello" />`,
+      to: `<div NAME1="hello" />`,
+    },
+    {
+      name: "replace name with value",
+      from: "<div name1='hello' />",
+      to: "<div NAME1='hello' />",
+    },
+  ].forEach(({ name, from, to }) => {
+    test(name, async () => {
+      expect(await transform(from)).toMatch(to);
+    });
+  });
+});
+
 describe("transform single value", () => {
   const transform = initTransform({
     replace: {
-      name1: { value: "value2" },
+      name1: { value: '"value2"' },
     },
   });
   [
     {
       name: "replace name",
       from: "<div name1={()=>{}} />",
-      to: `<div name1={"value2"} />`,
+      to: `<div name1="value2" />`,
     },
     {
       name: "can auto add value",
@@ -109,6 +138,39 @@ describe("transform single name and value", () => {
         name: "className",
         value: (v) => {
           return `{clsx(${v})}`;
+        },
+      },
+    },
+  });
+  [
+    {
+      name: "replace name and value",
+      from: "<div c />",
+      to: `<div className={clsx()} />`,
+    },
+    {
+      name: "replace name and value with value",
+      from: `<div c="hello" />`,
+      to: `<div className={clsx("hello")} />`,
+    },
+    {
+      name: "replace name and value with array value",
+      from: `<div c={["hello", "world"]} />`,
+      to: `<div className={clsx(["hello", "world"])} />`,
+    },
+  ].forEach(({ name, from, to }) => {
+    test(name, async () => {
+      expect(await transform(from)).toMatch(to);
+    });
+  });
+});
+
+describe("transform single by transform ", () => {
+  const transform = initTransform({
+    replace: {
+      c: {
+        transform: (_, value) => {
+          return { name: "className", value: `{clsx(${value})}` };
         },
       },
     },

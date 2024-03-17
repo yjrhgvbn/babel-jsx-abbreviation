@@ -7,8 +7,8 @@ import { declare } from "@babel/helper-plugin-utils";
 import { getJsxAstValueByString } from "./utils";
 
 interface ReplaceTransform {
-  parse?: (name: string, value: string) => { name: string; value: string };
-  name?: string;
+  transform?: (name: string, value: string) => { name?: string; value?: string };
+  name?: string | ((value: string) => string);
   value?: string | ((value: string) => string);
 }
 
@@ -63,42 +63,46 @@ function handleJSXAttribute(attributes: NodePath<t.JSXAttribute | t.JSXSpreadAtt
         if (name.isJSXIdentifier({ name: key })) {
           const transforms = getReplaceTransforms(replace, key);
           for (const transform of transforms) {
-            const toReplaceName = transform.name;
-            if (toReplaceName) {
-              /* remove the attribute if the new name already exists */
-              if (checkIdentifierExist(attributes, toReplaceName)) {
-                attr.remove();
-                break;
+            // integration of all replacement rules
+            const replacTransform = (name: string, value: string) => {
+              const toReplaceName = transform.name;
+              const toReplaceValue = transform.value;
+              const res = {
+                name: (typeof toReplaceName === "function" ? toReplaceName(name) : toReplaceName) ?? name,
+                value: (typeof toReplaceValue === "function" ? toReplaceValue(value) : toReplaceValue) ?? value,
+              };
+              if (typeof transform.transform === "function") {
+                const transformRes = transform.transform(name, value);
+                if (transformRes.name) {
+                  res.name = transformRes.name;
+                }
+                if (transformRes.value) {
+                  res.value = transformRes.value;
+                }
               }
-              if (transform.name) {
-                name.replaceWith(t.jsxIdentifier(transform.name));
-              }
+              return res;
+            };
+
+            const nameStr = name.node.name;
+            let valueStr = "";
+            const nodePathValue = attr.get("value");
+            if (nodePathValue.isJSXExpressionContainer()) {
+              valueStr = generate(nodePathValue.node.expression).code;
+            } else if (nodePathValue.isStringLiteral()) {
+              valueStr = generate(nodePathValue.node).code;
             }
 
-            const toReplaceValue = transform.value;
-            const nodePathValue = attr.get("value");
-            const nodeValue = nodePathValue.node;
-            if (toReplaceValue) {
-              if (typeof toReplaceValue === "string") {
-                if (t.isJSXExpressionContainer(nodeValue)) {
-                  nodeValue.expression = t.stringLiteral(toReplaceValue);
-                } else if (t.isStringLiteral(nodeValue)) {
-                  nodeValue.value = toReplaceValue;
-                } else {
-                  nodePathValue.replaceWith(t.stringLiteral(toReplaceValue));
-                }
-              } else if (typeof toReplaceValue === "function") {
-                if (t.isJSXExpressionContainer(nodeValue)) {
-                  const expressionValue = generate(nodeValue.expression).code;
-                  nodePathValue.replaceWith(getJsxAstValueByString(toReplaceValue(expressionValue)) as any);
-                } else if (t.isStringLiteral(nodeValue)) {
-                  const generateValue = generate(nodeValue).code;
-                  nodePathValue.replaceWith(getJsxAstValueByString(toReplaceValue(generateValue)) as any);
-                } else {
-                  nodePathValue.replaceWith(getJsxAstValueByString(toReplaceValue("")) as any);
-                }
+            const { name: toReplaceName, value: toReplaceValue } = replacTransform(nameStr, valueStr);
+
+            if (toReplaceName) {
+              /* remove the attribute if the new name already exists */
+              if (checkIdentifierExist(attributes, attr, toReplaceName)) {
+                attr.remove();
+              } else {
+                name.replaceWith(t.jsxIdentifier(toReplaceName));
               }
             }
+            if (toReplaceValue) nodePathValue.replaceWith(getJsxAstValueByString(toReplaceValue) as any);
           }
         }
       }
@@ -106,8 +110,15 @@ function handleJSXAttribute(attributes: NodePath<t.JSXAttribute | t.JSXSpreadAtt
   });
 }
 
-function checkIdentifierExist(attributes: NodePath<t.JSXAttribute | t.JSXSpreadAttribute>[], name: string) {
+function checkIdentifierExist(
+  attributes: NodePath<t.JSXAttribute | t.JSXSpreadAttribute>[],
+  curAttr: NodePath<t.JSXAttribute | t.JSXSpreadAttribute>,
+  name: string
+) {
   return attributes.some((attr) => {
+    if (attr === curAttr) {
+      return false;
+    }
     if (attr.isJSXAttribute()) {
       const attrName = attr.get("name");
       if (attrName.isJSXIdentifier({ name })) {
