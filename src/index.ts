@@ -26,8 +26,7 @@ export default declare<PluginOptions>((api, opt = {}) => {
     inherits: syntaxJsx,
     visitor: {
       JSXOpeningElement(path) {
-        const attributes = path.get("attributes");
-        handleJSXAttribute(attributes, opt);
+        handleJSXAttribute(path, opt);
       },
     },
   };
@@ -49,7 +48,9 @@ function getReplaceTransforms(replace: Replace, name: string) {
   return res;
 }
 
-function handleJSXAttribute(attributes: NodePath<t.JSXAttribute | t.JSXSpreadAttribute>[], opt: PluginOptions) {
+function handleJSXAttribute(path: NodePath<t.JSXOpeningElement>, opt: PluginOptions) {
+  const attributes = path.get("attributes");
+
   attributes.forEach((attr) => {
     if (attr.isJSXSpreadAttribute()) {
       return;
@@ -62,69 +63,72 @@ function handleJSXAttribute(attributes: NodePath<t.JSXAttribute | t.JSXSpreadAtt
       for (const key of Object.keys(replace)) {
         if (name.isJSXIdentifier({ name: key })) {
           const transforms = getReplaceTransforms(replace, key);
-          for (const transform of transforms) {
-            // integration of all replacement rules
-            const replacTransform = (name: string, value: string) => {
-              const toReplaceName = transform.name;
-              const toReplaceValue = transform.value;
-              const res = {
-                name: (typeof toReplaceName === "function" ? toReplaceName(name) : toReplaceName) ?? name,
-                value: (typeof toReplaceValue === "function" ? toReplaceValue(value) : toReplaceValue) ?? value,
-              };
-              if (typeof transform.transform === "function") {
-                const transformRes = transform.transform(name, value);
-                if (transformRes.name) {
-                  res.name = transformRes.name;
-                }
-                if (transformRes.value) {
-                  res.value = transformRes.value;
-                }
-              }
-              return res;
-            };
-
-            const nameStr = name.node.name;
-            let valueStr = "";
-            const nodePathValue = attr.get("value");
-            if (nodePathValue.isJSXExpressionContainer()) {
-              valueStr = generate(nodePathValue.node.expression).code;
-            } else if (nodePathValue.isStringLiteral()) {
-              valueStr = generate(nodePathValue.node).code;
+          let transformResList = transforms.map((v) => handleTransform(attr, v)).filter(Boolean) as t.JSXAttribute[];
+          // same name only keep the last one
+          const lookedSet = new Set<string>();
+          transformResList = transformResList.reverse().filter((v) => {
+            const name = v.name.name.toString();
+            if (lookedSet.has(name)) {
+              return false;
             }
-
-            const { name: toReplaceName, value: toReplaceValue } = replacTransform(nameStr, valueStr);
-
-            if (toReplaceName) {
-              /* remove the attribute if the new name already exists */
-              if (checkIdentifierExist(attributes, attr, toReplaceName)) {
-                attr.remove();
-              } else {
-                name.replaceWith(t.jsxIdentifier(toReplaceName));
-              }
+            lookedSet.add(name);
+            return true;
+          });
+          transformResList.forEach((transformRes) => {
+            if (!isIdentifierExist(attributes, transformRes) || isIdentifierSameName(attr.node, transformRes)) {
+              attr.insertAfter(transformRes);
             }
-            if (toReplaceValue) nodePathValue.replaceWith(getJsxAstValueByString(toReplaceValue) as any);
-          }
+          });
+          attr.remove();
         }
       }
     }
   });
 }
 
-function checkIdentifierExist(
-  attributes: NodePath<t.JSXAttribute | t.JSXSpreadAttribute>[],
-  curAttr: NodePath<t.JSXAttribute | t.JSXSpreadAttribute>,
-  name: string
-) {
-  return attributes.some((attr) => {
-    if (attr === curAttr) {
-      return false;
-    }
-    if (attr.isJSXAttribute()) {
-      const attrName = attr.get("name");
-      if (attrName.isJSXIdentifier({ name })) {
-        return true;
+function handleTransform(attr: NodePath<t.JSXAttribute>, transform: ReplaceTransform) {
+  // integration of all replacement rules
+  const replacTransform = (name: string, value: string) => {
+    const toReplaceName = transform.name;
+    const toReplaceValue = transform.value;
+    const res = {
+      name: (typeof toReplaceName === "function" ? toReplaceName(name) : toReplaceName) ?? name,
+      value: (typeof toReplaceValue === "function" ? toReplaceValue(value) : toReplaceValue) ?? value,
+    };
+    if (typeof transform.transform === "function") {
+      const transformRes = transform.transform(name, value);
+      if (transformRes.name !== undefined && transformRes.name !== null) {
+        res.name = transformRes.name;
+      }
+      if (transformRes.value !== undefined && transformRes.value !== null) {
+        res.value = transformRes.value;
       }
     }
-    return false;
+    return res;
+  };
+  const name = attr.get("name");
+  const nameStr = name.node.name as string;
+  let valueStr = "";
+  const nodePathValue = attr.get("value");
+  if (nodePathValue.isJSXExpressionContainer()) {
+    valueStr = generate(nodePathValue.node.expression).code;
+  } else if (nodePathValue.isStringLiteral()) {
+    valueStr = generate(nodePathValue.node).code;
+  }
+
+  const { name: toReplaceName, value: toReplaceValue } = replacTransform(nameStr, valueStr);
+  if (!toReplaceName) return null;
+  const newJsxIdentifier = t.jsxIdentifier(toReplaceName);
+  const newAttr = toReplaceValue ? getJsxAstValueByString(toReplaceValue) : null;
+  return t.jsxAttribute(newJsxIdentifier, newAttr);
+}
+
+function isIdentifierExist(attributes: NodePath<t.JSXAttribute | t.JSXSpreadAttribute>[], newAttr: t.JSXAttribute) {
+  return attributes.some((attr) => {
+    return attr.isJSXAttribute() && isIdentifierSameName(attr.node, newAttr);
   });
+}
+
+function isIdentifierSameName(attr: t.JSXAttribute, newAttr: t.JSXAttribute) {
+  return attr.name.name === newAttr.name.name;
 }
