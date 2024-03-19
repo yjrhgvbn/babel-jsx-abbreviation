@@ -18,6 +18,10 @@ with
 
 ## Usage
 
+```sh
+npm install --save-dev babel-jsx-abbreviation
+```
+
 .babelrc.js
 
 ```js
@@ -25,7 +29,7 @@ module.exports = function (api) {
   return {
     plugins: [
       [
-        "babel-plugin-jsx-abbreviation",
+        "babel-jsx-abbreviation",
         {
           replace: {
             c: {
