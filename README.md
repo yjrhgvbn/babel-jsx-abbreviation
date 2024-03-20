@@ -2,6 +2,10 @@
 
 automatic replacement of jsx attributes
 
+## unplugin
+
+it recommended to use with [unplugin-jsx-abbreviation](https://github.com/yjrhgvbn/unplugin-jsx-abbreviation), which is easier to use in vite or any other bundler
+
 ---
 
 without
