@@ -4,7 +4,7 @@ import generate from "@babel/generator";
 // @ts-expect-error
 import syntaxJsx from "@babel/plugin-syntax-jsx";
 import { declare } from "@babel/helper-plugin-utils";
-import { getJsxAstValueByString } from "./utils";
+import { getJsxAstValueByString, interopDefault } from "./utils";
 
 interface ReplaceTransform {
   transform?: (name: string, value: string) => { name?: string; value?: string };
@@ -23,7 +23,7 @@ export interface PluginOptions {
 export default declare<PluginOptions>((api, opt = {}) => {
   return {
     name: "babel-jsx-abbreviation",
-    inherits: syntaxJsx,
+    inherits: /*#__PURE__*/ interopDefault(syntaxJsx),
     visitor: {
       JSXOpeningElement(path) {
         handleJSXAttribute(path, opt);
@@ -111,9 +111,9 @@ function handleTransform(attr: NodePath<t.JSXAttribute>, transform: ReplaceTrans
   let valueStr = "";
   const nodePathValue = attr.get("value");
   if (nodePathValue.isJSXExpressionContainer()) {
-    valueStr = generate(nodePathValue.node.expression).code;
+    valueStr = interopDefault(generate)(nodePathValue.node.expression).code;
   } else if (nodePathValue.isStringLiteral()) {
-    valueStr = generate(nodePathValue.node).code;
+    valueStr = interopDefault(generate)(nodePathValue.node).code;
   }
 
   const { name: toReplaceName, value: toReplaceValue } = replacTransform(nameStr, valueStr);

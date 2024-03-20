@@ -17,3 +17,8 @@ export function getJsxAstValueByString(str: string) {
 
   return value;
 }
+
+/* #__NO_SIDE_EFFECTS__ */
+export function interopDefault(m: any) {
+  return m.default || m;
+}
